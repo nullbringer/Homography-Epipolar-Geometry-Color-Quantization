@@ -60,36 +60,26 @@ def find_homography_and_match_images(good_matches, kp_1, kp_2, img_1, img_2):
 	dst_pts = np.float32([ kp_2[m.trainIdx].pt for m in good_matches ]).reshape(-1,1,2)
 
 	M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
-	matchesMask = mask.ravel().tolist()
-
-	matchesMask_in = []
-	good_matches_in = []
-	for mm, gm in zip(matchesMask,good_matches):
-		if mm == 1:
-			matchesMask_in.append(mm)
-			good_matches_in.append(gm)
+	matchesMask = mask.ravel()
+	good_matches_np = np.asarray(good_matches)
 
 
+	matchesMask = matchesMask[mask.ravel()==1]
+	good_matches_np = good_matches_np[mask.ravel()==1]
 
-	print(len(good_matches_in))
-	print(len(matchesMask_in))
-
+	randIndx = np.random.randint(low=0, high=good_matches_np.shape[0], size=10)
 	
-	# randIndx = np.random.randint(low=0, high=len(good_matches_in), size=10)
-	# good_matches_in = good_matches_in[randIndx]
-	# matchesMask_in = matchesMask_in[ran]
-
-	# matchesMask_in = matchesMask_in[:10]
-	# good_matches_in_10 = random.sample(range(len(good_matches_in)), 10)
+	good_matches_np = good_matches_np[randIndx]
+	matchesMask = matchesMask[randIndx]
 
 
-	draw_params = dict(matchColor = (0,255,0),
+	draw_params = dict(matchColor = (0, 0, 255),
 	           singlePointColor = None,
-	           matchesMask = matchesMask_in,
+	           matchesMask = matchesMask.tolist(),
 	           flags = 2)
 
 
-	matches_img = cv2.drawMatches(img_1, kp_1, img_2, kp_2, good_matches_in_10, None, **draw_params)
+	matches_img = cv2.drawMatches(img_1, kp_1, img_2, kp_2, good_matches_np.tolist(), None, **draw_params)
 	return M, matches_img
 
 
@@ -193,6 +183,31 @@ def drawlines(img1,img2,lines,pts1,pts2, color):
 		img2 = cv2.circle(img2,tuple(pt2),5,tuple(colr),-1)
 	return img1,img2
 
+def find_disparity_map(imgL, imgR):
+
+	window_size = 3
+	min_disp = 16
+	num_disp = 64-min_disp
+	stereo = cv2.StereoSGBM_create(minDisparity = min_disp,
+		numDisparities = num_disp,
+		blockSize = 9,
+		P1 = 8*3*window_size**2,
+		P2 = 32*3*window_size**2,
+		disp12MaxDiff = 1,
+		uniquenessRatio = 10,
+		speckleWindowSize = 100,
+		speckleRange = 32
+	)
+
+	print('computing disparity...')
+	disp = stereo.compute(imgL, imgR).astype(np.float32) / 16.0
+	disp = (disp-min_disp)/num_disp
+
+	disp = disp*300
+
+
+	write_image(disp,'task2_disparity.jpg')
+
 
 def epipolar_geometry(tsucuba_left_img, tsucuba_right_img):
 
@@ -213,14 +228,12 @@ def epipolar_geometry(tsucuba_left_img, tsucuba_right_img):
 	F, mask = cv2.findFundamentalMat(pts1,pts2,cv2.FM_RANSAC)
 	pts1 = pts1[mask.ravel()==1]
 	pts2 = pts2[mask.ravel()==1]
-	print(F)
+	# print(F)
 
 
 	randIndx = np.random.randint(low=0, high=pts1.shape[0], size=10)
 	pts1 = pts1[randIndx]
 	pts2 = pts2[randIndx]
-
-	# color = tuple(np.random.randint(0,255,3).tolist())
 	
 
 	color = np.random.randint(0,255, size=(10, 3)).tolist()
@@ -237,10 +250,9 @@ def epipolar_geometry(tsucuba_left_img, tsucuba_right_img):
 
 	write_image(tsucuba_right_ep, 'task2_epi_right.jpg')
 
-	
+	# task 2.4
 
-
-
+	find_disparity_map(tsucuba_left_img, tsucuba_right_img)
 
 
 
@@ -255,6 +267,8 @@ def main():
 	tsucuba_right_img = cv2.imread(SOURCE_FOLDER + "tsucuba_right.png", 0)
 
 	epipolar_geometry(tsucuba_left_img, tsucuba_right_img)
+
+	print('DONE!!')
 	
 
 
