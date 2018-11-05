@@ -5,6 +5,7 @@ np.random.seed(sum([ord(c) for c in UBIT]))
 import cv2
 import matplotlib.pyplot as plt
 import random
+import math
 
 SOURCE_FOLDER = 'data/'
 OUTPUT_FOLDER = 'output/'
@@ -163,7 +164,7 @@ def image_feature_and_homography(mountain_1_img, mountain_2_img):
 	#task 1.3, task 1.4
 	
 	h_matrix, task1_matches = find_homography_and_match_images(good_matches, kp_1, kp_2, mountain_1_img, mountain_2_img)
-	# print(h_matrix)
+	print(h_matrix)
 	write_image(task1_matches, 'task1_matches.jpg')
 
 	# task 1.5
@@ -199,7 +200,6 @@ def find_disparity_map(imgL, imgR):
 		speckleRange = 32
 	)
 
-	print('computing disparity...')
 	disp = stereo.compute(imgL, imgR).astype(np.float32) / 16.0
 	disp = (disp-min_disp)/num_disp
 
@@ -228,7 +228,7 @@ def epipolar_geometry(tsucuba_left_img, tsucuba_right_img):
 	F, mask = cv2.findFundamentalMat(pts1,pts2,cv2.FM_RANSAC)
 	pts1 = pts1[mask.ravel()==1]
 	pts2 = pts2[mask.ravel()==1]
-	# print(F)
+	print(F)
 
 
 	randIndx = np.random.randint(low=0, high=pts1.shape[0], size=10)
@@ -255,18 +255,196 @@ def epipolar_geometry(tsucuba_left_img, tsucuba_right_img):
 	find_disparity_map(tsucuba_left_img, tsucuba_right_img)
 
 
+def measure_euclidean_distance(pt1 , pt2):
+    dis = math.sqrt(((pt1[0] - pt2[0])**2) + ((pt1[1] - pt2[1])**2))
+    return dis
+
+def calculate_distances_from_centroids(mu, mu_c, X, it_n):
+    cluster_c = []
+
+    for pt in X:
+
+        isFirst = True
+        for m, mc in zip(mu,mu_c):
+            if isFirst == True:
+                d = measure_euclidean_distance(pt,m)
+                c = mc
+                isFirst = False
+            elif (measure_euclidean_distance(pt,m) < d):
+                d = measure_euclidean_distance(pt,m)
+                c = mc
+
+        cluster_c.append(c) 
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    plt.scatter(X[:,0], X[:,1], marker= "^", facecolors="None", edgecolors= cluster_c)
+    plt.scatter(mu[:,0], mu[:,1], c= mu_c)
+    for xy in zip(mu[:,0], mu[:,1]):
+    	ax.annotate('(%.2f, %.2f)' % xy, xy=xy, textcoords='data')
+    # plt.show()
+    plt.savefig(OUTPUT_FOLDER + 'task3_iter'+str(it_n+1)+'_a.jpg')
+    plt.clf()
+    
+    return np.asarray(cluster_c)
+
+def vector_classification():
+
+	X = np.array([
+        [5.9, 3.2], 
+        [4.6, 2.9], 
+        [6.2, 2.8], 
+        [4.7, 3.2], 
+        [5.5, 4.2], 
+        [5.0, 3.0], 
+        [4.9, 3.1], 
+        [6.7, 3.1], 
+        [5.1, 3.8], 
+        [6.0, 3.0]])
+
+	mu = np.array([[6.2, 3.2], [6.6, 3.7], [6.5, 3.0]])
+	mu_c = ['r','g','b']
+
+	for i in range(2):
+	    
+	    cluster_c = calculate_distances_from_centroids(mu, mu_c, X, i)
+
+	    print(cluster_c)
+
+	    clusters = []
+	    for mc in zip(mu_c):
+	        clusters.append(X[cluster_c == mc])
+
+	    mu = []
+	    for clus in clusters:
+	        mu.append(np.mean(clus, axis=0))
+
+	    mu = np.asarray(mu)
+	    print(mu)
+
+
+	    fig = plt.figure()
+	    ax = fig.add_subplot(111)
+	    plt.scatter(X[:,0], X[:,1], marker= "^", facecolors="None", edgecolors= cluster_c)
+	    plt.scatter(mu[:,0], mu[:,1], c= mu_c)
+	    for xy in zip(mu[:,0], mu[:,1]):
+	    	ax.annotate('(%.2f, %.2f)' % xy, xy=xy, textcoords='data')
+	    plt.savefig(OUTPUT_FOLDER + 'task3_iter'+str(i+1)+'_b.jpg')
+	    plt.clf()
+
+
+
+def measure_euclidean_distance_3d(color1 , color2):
+    try:
+        dis = ((color1[0] - color2[0])**2) + ((color1[1] - color2[1])**2) + ((color1[2] - color2[2])**2)
+    except:
+        print(color1, color2)
+    return dis
+
+
+def calculate_distances_from_centroids_3d(mu, mu_c, image):
+    cluster_c = np.zeros([image.shape[0],image.shape[1]])
+
+    h, w, l = image.shape
+    
+    
+    for i in range(h):
+        for j in range(w):
+            pixel = image[i][j]
+
+            isFirst = True
+            for m, mc in zip(mu,mu_c):
+                if isFirst == True:
+                    d = measure_euclidean_distance_3d(pixel,m)
+                    c = mc
+                    isFirst = False
+                elif (measure_euclidean_distance_3d(pixel,m) < d):
+                    d = measure_euclidean_distance_3d(pixel,m)
+                    c = mc
+
+            cluster_c[i][j] = c 
+
+    
+    return np.asarray(cluster_c)
+
+
+def color_quantization(image):
+
+
+	k = [3, 5, 10, 20]
+	# k = [20]
+
+	for kval in k:
+	    
+	    mu = np.random.randint(0,255, size=(kval, 3))
+	    mu_c = np.arange(kval)
+
+	    for zz in range(10):
+
+	        cluster_c = calculate_distances_from_centroids_3d(mu, mu_c, image)
+
+	        h, w, l = image.shape
+	        clusters = []
+
+
+	        for mc in zip(mu_c):
+	            clustered_img_np = []
+	            for i in range(h):
+	                for j in range(w):
+	                    if(cluster_c[i][j] == mc):
+	                        clustered_img_np.append(image[i][j])
+	            clusters.append(np.asarray(clustered_img_np))
+
+	        mu = []
+	        for clus in clusters:
+	            c_mean = np.nanmean(clus, axis=0) 
+	            if (math.isnan(np.sum(c_mean))):
+	                c_mean = np.random.randint(0,255, size=(1, 3))
+	                c_mean = c_mean.astype(float)
+	                print('nan--initialized again')
+	            mu.append(c_mean)
+
+	        mu = np.asarray(mu)
+
+	        h, w, l = image.shape
+	        output_img = np.zeros([h,w,l])
+
+	        for i in range(h):
+	            for j in range(w):
+	                index =int(cluster_c[i][j])
+	                output_img[i][j] = mu[index]
+
+	        op = output_img.astype(int)
+	        print(zz)
+	    write_image(op, 'task3_baboon_'+ str(kval) +'.jpg')
+		# print('boboon for ' + str(kval) + 'k means generated!')
+
+
+
+def k_means_clustering(image):
+
+	#task 3.1, 3.2, 3.3
+	vector_classification()
+
+	#task 3.4
+	# color_quantization(image)
+
+
 
 def main():
 
-	mountain_1_img = cv2.imread(SOURCE_FOLDER + "mountain1.jpg", 0)
-	mountain_2_img = cv2.imread(SOURCE_FOLDER + "mountain2.jpg", 0)
+	# mountain_1_img = cv2.imread(SOURCE_FOLDER + "mountain1.jpg", 0)
+	# mountain_2_img = cv2.imread(SOURCE_FOLDER + "mountain2.jpg", 0)
 	
-	image_feature_and_homography(mountain_1_img, mountain_2_img)
+	# image_feature_and_homography(mountain_1_img, mountain_2_img)
 
-	tsucuba_left_img = cv2.imread(SOURCE_FOLDER + "tsucuba_left.png", 0)
-	tsucuba_right_img = cv2.imread(SOURCE_FOLDER + "tsucuba_right.png", 0)
+	# tsucuba_left_img = cv2.imread(SOURCE_FOLDER + "tsucuba_left.png", 0)
+	# tsucuba_right_img = cv2.imread(SOURCE_FOLDER + "tsucuba_right.png", 0)
 
-	epipolar_geometry(tsucuba_left_img, tsucuba_right_img)
+	# epipolar_geometry(tsucuba_left_img, tsucuba_right_img)
+
+	baboon_img = cv2.imread(SOURCE_FOLDER + "baboon.jpg")
+	k_means_clustering(baboon_img)
 
 	print('DONE!!')
 	
