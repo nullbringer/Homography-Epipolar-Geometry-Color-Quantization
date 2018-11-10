@@ -375,11 +375,19 @@ def color_quantization(image):
 	# k = [20]
 
 	for kval in k:
-	    
+
 	    mu = np.random.randint(0,255, size=(kval, 3))
+	    mu_indx = np.random.randint(0,image.shape[0], size=(kval, 2))
+	    mu = []
+
+	    for i in range(mu_indx.shape[0]):
+	    	mu.append(image[mu_indx[i][0]][mu_indx[i][1]])
+	    mu = np.asarray(mu).astype(float)
+
 	    mu_c = np.arange(kval)
 
-	    for zz in range(10):
+
+	    for zz in range(30):
 
 	        cluster_c = calculate_distances_from_centroids_3d(mu, mu_c, image)
 
@@ -397,11 +405,7 @@ def color_quantization(image):
 
 	        mu = []
 	        for clus in clusters:
-	            c_mean = np.nanmean(clus, axis=0) 
-	            if (math.isnan(np.sum(c_mean))):
-	                c_mean = np.random.randint(0,255, size=(1, 3))
-	                c_mean = c_mean.astype(float)
-	                print('nan--initialized again')
+	            c_mean = np.nanmean(clus, axis=0)
 	            mu.append(c_mean)
 
 	        mu = np.asarray(mu)
@@ -427,21 +431,21 @@ def k_means_clustering(image):
 	vector_classification()
 
 	#task 3.4
-	# color_quantization(image)
+	color_quantization(image)
 
 
 
 def main():
 
-	# mountain_1_img = cv2.imread(SOURCE_FOLDER + "mountain1.jpg", 0)
-	# mountain_2_img = cv2.imread(SOURCE_FOLDER + "mountain2.jpg", 0)
+	mountain_1_img = cv2.imread(SOURCE_FOLDER + "mountain1.jpg", 0)
+	mountain_2_img = cv2.imread(SOURCE_FOLDER + "mountain2.jpg", 0)
 	
-	# image_feature_and_homography(mountain_1_img, mountain_2_img)
+	image_feature_and_homography(mountain_1_img, mountain_2_img)
 
-	# tsucuba_left_img = cv2.imread(SOURCE_FOLDER + "tsucuba_left.png", 0)
-	# tsucuba_right_img = cv2.imread(SOURCE_FOLDER + "tsucuba_right.png", 0)
+	tsucuba_left_img = cv2.imread(SOURCE_FOLDER + "tsucuba_left.png", 0)
+	tsucuba_right_img = cv2.imread(SOURCE_FOLDER + "tsucuba_right.png", 0)
 
-	# epipolar_geometry(tsucuba_left_img, tsucuba_right_img)
+	epipolar_geometry(tsucuba_left_img, tsucuba_right_img)
 
 	baboon_img = cv2.imread(SOURCE_FOLDER + "baboon.jpg")
 	k_means_clustering(baboon_img)
